@@ -25,23 +25,10 @@ THE SOFTWARE.
 
 
 #import <Foundation/Foundation.h>
+#import "SFWTaskRunner.h"
 
-@protocol SFWTask;
+@interface SFWTaskRunner ()
 
-typedef id<SFWTask> SFWTask_t;
-
-typedef void (^SFWRunBlock_t)();
-typedef void (^SFWRunTaskBlock_t)(SFWTask_t op);
-
-@protocol SFWTask
-
-- (instancetype) initWithBlock: (SFWRunBlock_t) block;
-- (void) run;
-
-@end
-
-@interface SFWTask : NSObject <SFWTask>
-
-@property (atomic, strong) SFWRunTaskBlock_t runBlock;
+@property (nonatomic, strong) dispatch_queue_t queue;
 
 @end

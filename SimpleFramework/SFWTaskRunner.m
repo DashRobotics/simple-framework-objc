@@ -22,12 +22,74 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
+#import "SFWTask.h"
+#import "SFWTaskRunner+Private.h"
 
-
-#import "SFWTaskRunner.h"
-
+static char* const CURRENT_RUNNER_KEY = "SFWTaskRunner.current";
 
 @implementation SFWTaskRunner {
 
 }
+
++ (instancetype)mainRunner {
+    static SFWTaskRunner* mainQueue = nil;
+
+    if (mainQueue == nil) {
+        mainQueue = [[self alloc] initWithQueue:dispatch_get_main_queue()];
+    }
+
+    return mainQueue;
+}
+
++ (instancetype)backgroundRunner {
+    static SFWTaskRunner* backgroundQueue = nil;
+
+    if (backgroundQueue == nil) {
+        backgroundQueue = [[self alloc] initWithQueue:dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0)];
+    }
+
+    return backgroundQueue;
+}
+
++ (instancetype)currentRunner {
+    return (__bridge id) dispatch_get_specific(CURRENT_RUNNER_KEY);
+}
+
+- (instancetype) initWithQueue: (dispatch_queue_t) queue {
+    self = [self init];
+
+    _queue = queue;
+
+    return self;
+}
+
+- (SFWTask_t)scheduleAsync:(SFWRunBlock_t)block after:(NSTimeInterval)timeDelay {
+    return [self scheduleAsyncTask:[[SFWTask alloc] initWithBlock:block] after: timeDelay];
+}
+
+- (SFWTask_t)scheduleAsync:(SFWRunBlock_t)block at:(NSTimeInterval)timeDelay {
+    return [self scheduleAsyncTask:[[SFWTask alloc] initWithBlock:block] at: timeDelay];
+}
+
+- (SFWTask_t)scheduleAsyncTask:(SFWTask_t)task after: (NSTimeInterval) delay {
+
+    dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, (dispatch_time_t) (NSEC_PER_SEC * delay));
+    dispatch_after(when, _queue, ^{
+        dispatch_queue_set_specific(_queue, CURRENT_RUNNER_KEY, (__bridge void*) self, NULL);
+        [task run];
+        dispatch_queue_set_specific(_queue, CURRENT_RUNNER_KEY, NULL, NULL);
+    });
+
+    return task;
+}
+
+- (SFWTask_t)scheduleAsyncTask:(SFWTask_t)task at: (NSTimeInterval) when {
+
+    dispatch_after((dispatch_time_t) when, _queue, ^{
+        [task run];
+    });
+
+    return task;
+}
+
 @end

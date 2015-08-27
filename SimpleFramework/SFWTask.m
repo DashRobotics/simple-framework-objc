@@ -22,26 +22,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
+#import "SFWTask.h"
 
+@implementation SFWTask
 
-#import <Foundation/Foundation.h>
+- (instancetype)initWithBlock:(SFWRunBlock_t)block {
+    self.runBlock = ^(SFWTask_t task) {
+        block();
+    };
+    return self;
+}
 
-@protocol SFWTask;
-
-typedef id<SFWTask> SFWTask_t;
-
-typedef void (^SFWRunBlock_t)();
-typedef void (^SFWRunTaskBlock_t)(SFWTask_t op);
-
-@protocol SFWTask
-
-- (instancetype) initWithBlock: (SFWRunBlock_t) block;
-- (void) run;
-
-@end
-
-@interface SFWTask : NSObject <SFWTask>
-
-@property (atomic, strong) SFWRunTaskBlock_t runBlock;
+- (void)run {
+    self.runBlock(self);
+}
 
 @end

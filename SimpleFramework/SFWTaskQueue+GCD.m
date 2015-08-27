@@ -22,104 +22,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#import "SFWTaskRunner.h"
+#import "SFWTaskRunner+Private.h"
 #import "SFWTaskQueue.h"
 #import <objc/runtime.h>
 
-static char* const CURRENT_RUNNER_KEY = "SFWTaskRunner.current";
 static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
 
-@interface SFWTask : NSObject <SFWTask>
-
-@property (atomic, strong) SFWRunTaskBlock_t runBlock;
-
-@end
-
-@implementation SFWTask
-
-- (instancetype)initWithBlock:(SFWRunBlock_t)block {
-    self.runBlock = ^(SFWTask_t task) {
-        block();
-    };
-    return self;
-}
-
-- (void)run {
-    self.runBlock(self);
-}
-
-@end
-
-@implementation SFWTaskRunner {
-    dispatch_queue_t _queue;
-}
-
-+ (instancetype)mainRunner {
-    static SFWTaskRunner* mainQueue = nil;
-
-    if (mainQueue == nil) {
-        mainQueue = [[self alloc] initWithQueue:dispatch_get_main_queue()];
-    }
-
-    return mainQueue;
-}
-
-+ (instancetype)backgroundRunner {
-    static SFWTaskRunner* backgroundQueue = nil;
-
-    if (backgroundQueue == nil) {
-        backgroundQueue = [[self alloc] initWithQueue:dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0)];
-    }
-
-    return backgroundQueue;
-}
-
-+ (instancetype)currentRunner {
-    return (__bridge id) dispatch_get_specific(CURRENT_RUNNER_KEY);
-}
-
-- (instancetype) initWithQueue: (dispatch_queue_t) queue {
-    self = [self init];
-
-    _queue = queue;
-
-    return self;
-}
-
-- queue {
-    return _queue;
-}
-
-- (SFWTask_t)scheduleAsync:(SFWRunBlock_t)block after:(NSTimeInterval)timeDelay {
-    return [self scheduleAsyncTask:[[SFWTask alloc] initWithBlock:block] after: timeDelay];
-}
-
-- (SFWTask_t)scheduleAsync:(SFWRunBlock_t)block at:(NSTimeInterval)timeDelay {
-    return [self scheduleAsyncTask:[[SFWTask alloc] initWithBlock:block] at: timeDelay];
-}
-
-- (SFWTask_t)scheduleAsyncTask:(SFWTask_t)task after: (NSTimeInterval) delay {
-
-    dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, (dispatch_time_t) (NSEC_PER_SEC * delay));
-    dispatch_after(when, _queue, ^{
-        dispatch_queue_set_specific(_queue, CURRENT_RUNNER_KEY, (__bridge void*) self, NULL);
-        [task run];
-        dispatch_queue_set_specific(_queue, CURRENT_RUNNER_KEY, NULL, NULL);
-    });
-
-    return task;
-}
-
-- (SFWTask_t)scheduleAsyncTask:(SFWTask_t)task at: (NSTimeInterval) when {
-
-    dispatch_after((dispatch_time_t) when, _queue, ^{
-        [task run];
-    });
-
-    return task;
-}
-
-@end
 
 @implementation SFWTaskQueue {
     NSMutableArray * _tasks;
@@ -169,11 +77,10 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
     return self;
 }
 
-- (void) runTask: (SFWTask*) task {
+- (void) runTask: (SFWTask_t) task {
     dispatch_queue_set_specific(_runner.queue, CURRENT_QUEUE_KEY, (__bridge void*) self, NULL);
 
-    task.runBlock(task);
-    task.runBlock = nil;
+    [task run];
 
     dispatch_queue_set_specific(_runner.queue, CURRENT_QUEUE_KEY, NULL, NULL);
 }
@@ -198,9 +105,9 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
             NSDictionary *dict = _tasks.firstObject;
             after = dict[@"after"];
 
-            int32_t afterVal = after.intValue;
+            float afterVal = after.floatValue;
             if (afterVal >= 0) {
-                dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * afterVal);
+                dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, (dispatch_time_t) (NSEC_PER_SEC * afterVal));
                 NSLog(@"doNext: after %@, when %lld", after, when);
                 [_runner scheduleAsyncTask:_run at: when];
             }
