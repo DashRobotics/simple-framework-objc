@@ -35,6 +35,8 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
     SFWTask_t _run;
     dispatch_group_t _group;
     bool _isScheduled;
+    bool _isPaused;
+    SFWTask_t _needsRescheduledAfterPause;
 }
 
 + (instancetype)mainQueue {
@@ -61,9 +63,15 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
     return (__bridge id) dispatch_get_specific(CURRENT_QUEUE_KEY);
 }
 
-- (instancetype) initWithRunner: (SFWTaskRunner *) runner {
-    self = [self init];
+- (instancetype) initWithName: (NSString*) name {
 
+    dispatch_queue_t queue = dispatch_queue_create([name cStringUsingEncoding:NSUTF8StringEncoding], DISPATCH_QUEUE_CONCURRENT);
+    SFWTaskRunner* runner = [[SFWTaskRunner alloc] initWithQueue: queue];
+
+    return [self initWithRunner:runner];
+}
+
+- (instancetype) initWithRunner: (SFWTaskRunner *) runner {
     __weak SFWTaskQueue* weakSelf = self;
 
     _group = dispatch_group_create();
@@ -88,33 +96,38 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
 - (void) doNext {
     @synchronized (self) {
 
-        SFWTask *task = nil;
-        NSNumber *after = nil;
+        if (!_isPaused) {
 
-        if (_tasks.count > 0) {
-            NSDictionary *dict = _tasks.firstObject;
-            task = dict[@"task"];
-            after = dict[@"after"];
-            [_tasks removeObjectAtIndex:0];
-        }
+            SFWTask *task = nil;
+            NSNumber *after = nil;
 
-        [self runTask:task];
-        NSLog(@"doNext: task completed");
+            if (_tasks.count > 0) {
+                NSDictionary *dict = _tasks.firstObject;
+                task = dict[@"task"];
+                after = dict[@"after"];
+                [_tasks removeObjectAtIndex:0];
+            }
 
-        if (_tasks.count > 0) {
-            NSDictionary *dict = _tasks.firstObject;
-            after = dict[@"after"];
+            [self runTask:task];
+            NSLog(@"doNext: task completed");
 
-            float afterVal = after.floatValue;
-            if (afterVal >= 0) {
-                dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, (dispatch_time_t) (NSEC_PER_SEC * afterVal));
-                NSLog(@"doNext: after %@, when %lld", after, when);
-                [_runner scheduleAsyncTask:_run at: when];
+            if (_tasks.count > 0) {
+                NSDictionary *dict = _tasks.firstObject;
+                after = dict[@"after"];
+
+                float afterVal = after.floatValue;
+                if (afterVal >= 0) {
+                    dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, (dispatch_time_t) (NSEC_PER_SEC * afterVal));
+                    NSLog(@"doNext: after %@, when %lld", after, when);
+                    [_runner scheduleAsyncTask:_run at:when];
+                }
+            } else {
+                _isScheduled = NO;
+                if (after.integerValue >= 0)
+                    dispatch_group_leave(_group);
             }
         } else {
-            _isScheduled = NO;
-            if (after.integerValue >= 0)
-                dispatch_group_leave(_group);
+            _needsRescheduledAfterPause = _run;
         }
 
     }
@@ -125,7 +138,11 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
     if (after == -1) {
         dispatch_group_wait(_group, DISPATCH_TIME_FOREVER);
         @synchronized (self) {
-            [self runTask:task];
+            if (!_isPaused) {
+                [self runTask:task];
+            } else {
+                _needsRescheduledAfterPause = task;
+            }
         }
     } else {
         @synchronized (self) {
@@ -159,6 +176,24 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
 
 - (SFWTask_t)queueAsync:(SFWRunBlock_t)block after:(NSTimeInterval)timeDelay {
     return [self addObject:[[SFWTask alloc] initWithBlock:block ] after:timeDelay];
+}
+
+- (void)pause {
+    @synchronized (self) {
+        _isPaused = YES;
+    }
+}
+
+- (void)resume {
+    @synchronized (self) {
+        _isPaused = NO;
+        if (_isScheduled && _needsRescheduledAfterPause) {
+            SFWTask_t task = _needsRescheduledAfterPause;
+            _needsRescheduledAfterPause = nil;
+            dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, 0);
+            [_runner scheduleAsyncTask:task at:when];
+        }
+    }
 }
 
 @end

@@ -14,7 +14,7 @@
 SpecBegin(SFWRunQueue)
 
 describe(@"SFWTaskQueue", ^{
-    
+
     it(@"should have .mainQueue tasks running on the main queue.", ^{
 
         waitUntil(^(DoneCallback done) {
@@ -200,6 +200,65 @@ describe(@"SFWTaskQueue", ^{
             } after: 1];
 
             runOrder++;
+        });
+
+    });
+
+    it(@"should create a new queue.", ^{
+
+        SFWTaskQueue* queue = [[SFWTaskQueue alloc] initWithName:@"myqueue"];
+
+        expect(queue).toNot.equal([SFWTaskQueue backgroundQueue]);
+        expect(queue).toNot.equal([SFWTaskQueue mainQueue]);
+        expect(queue).toNot.equal([SFWTaskQueue currentQueue]);
+
+        waitUntilTimeout(3, ^(DoneCallback done) {
+
+            __block int num = 0;
+
+            [[SFWTaskQueue backgroundQueue] queueAsync:^{
+                num++;
+            } after:1];
+
+            [[SFWTaskQueue mainQueue] queueAsync:^{
+                num++;
+                done();
+            } after:2];
+
+            //this one should execute before the other two because it is not on the same queue
+            [queue queueAsync:^{
+                num++;
+                expect(num).to.equal(1);
+            } after:0];
+
+        });
+
+    });
+
+    it(@"should block a queue using 'pause' and unblock a queue using 'resume'.", ^{
+
+        SFWTaskQueue* queue = [[SFWTaskQueue alloc] initWithName:@"myqueue"];
+
+        waitUntilTimeout(3, ^(DoneCallback done) {
+
+            __block int num = 0;
+
+            //this one should execute before the other queue even though it is scheduled later because
+            //the queue is paused until this block resumes it.
+            [[SFWTaskQueue backgroundQueue] queueAsync:^{
+                num++;
+                expect(num).to.equal(1);
+                [queue resume];
+            } after:2];
+
+            [queue pause];
+
+            [queue queueAsync:^{
+                num++;
+                expect(num).to.equal(2);
+                done();
+            } after:0];
+
         });
 
     });

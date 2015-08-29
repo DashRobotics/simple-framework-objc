@@ -25,9 +25,12 @@ THE SOFTWARE.
 
 
 #import <Foundation/Foundation.h>
+#import <dispatch/dispatch.h>
 #import "SFWTaskRunner.h"
 
 @interface SFWTaskRunner ()
+
+- (instancetype) initWithQueue: (dispatch_queue_t) queue;
 
 @property (nonatomic, strong) dispatch_queue_t queue;
 

@@ -34,11 +34,16 @@ THE SOFTWARE.
 + (instancetype) backgroundQueue;
 + (instancetype) currentQueue;
 
+- (instancetype) initWithName: (NSString*) name;
+
 - (SFWTask_t) queue: (SFWRunBlock_t) block sync: (bool) bSync;
 - (SFWTask_t) queueSync: (SFWRunBlock_t) block;
 - (SFWTask_t) queueAsync: (SFWRunBlock_t) block;
 /* Runs the block delayed by a timeout after the last queued block is executed. */
 - (SFWTask_t) queueAsync: (SFWRunBlock_t) block after: (NSTimeInterval) timeDelay;
+
+- (void) pause;
+- (void) resume;
 
 /*
 - (SFWTask *) queueTask: (SFWTask *) op sync: (bool) bSync;

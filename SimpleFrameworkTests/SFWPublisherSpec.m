@@ -233,6 +233,7 @@ describe(@"SFWPublisher", ^{
 
         [emitter subscribeObserver:receiver];
         [emitter subscribeObserver:receiver2];
+        [[SFWTaskQueue backgroundQueue] pause];
         [emitter publishToQueue:[SFWTaskQueue backgroundQueue]];
 
         expect(receiver.testCalled).to.equal(2);
@@ -244,6 +245,8 @@ describe(@"SFWPublisher", ^{
         expect(receiver2.test2Called).to.equal(2);
         expect(receiver2.test2withIntCalled).to.equal(2);
         expect(receiver2.test3Called).to.equal(0);
+
+        [[SFWTaskQueue backgroundQueue] resume];
 
         waitUntil(^(DoneCallback done) {
 

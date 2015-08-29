@@ -7,7 +7,6 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "NSObject+SFWPublisher.h"
 
 typedef void (^SFWRunBlock_t)();
 
