@@ -26,17 +26,26 @@ THE SOFTWARE.
 
 #import <Foundation/Foundation.h>
 
+@class SFWPublisherProxy;
 @class SFWTaskQueue;
+@protocol SFWPublisher;
 
 typedef void (^SFWPublisherBlock_t)(id publisher);
 
-@protocol SFWPublisher
+extern void SFWPublisherSubscribe(id<SFWPublisher> publisher, id subscriber);
+extern void SFWPublisherUnsubscribe(id<SFWPublisher> publisher, id subscriber);
+extern id SFWPublisherWithProtocol(id<SFWPublisher> publisher, Protocol* proto);
+extern void SFWPublisherPublishToObserversUsingProtocol(id<SFWPublisher> publisher, Protocol* proto, SFWPublisherBlock_t block);
+extern void SFWPublisherPublishToObserversUsingProtocolAndQueue(id<SFWPublisher> publisher, Protocol* proto, SFWTaskQueue * queue, SFWPublisherBlock_t block);
+
+@protocol SFWPublisher<NSObject>
+
+@required
+- (NSArray*) subscribeKeys;
 
 @optional
 - (void) subscribeObserver: (id) observer;
 - (void) unsubscribeObserver: (id) observer;
-
-- (NSArray*) subscribeKeys;
 
 - (id) publisherForObserversUsing: (Protocol *) proto;
 - (void) publishToObserversUsing: (Protocol *) proto block: (SFWPublisherBlock_t) block;
@@ -44,5 +53,9 @@ typedef void (^SFWPublisherBlock_t)(id publisher);
 
 - (BOOL) onSubscribe: (id) observer key: (Protocol*) proto;
 - (BOOL) onUnsubscribe: (id) observer key: (Protocol*) proto;
+
+@end
+
+@interface SFWPublisher : NSObject<SFWPublisher>
 
 @end

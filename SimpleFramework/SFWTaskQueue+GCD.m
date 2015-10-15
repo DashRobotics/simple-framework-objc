@@ -109,7 +109,7 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
             }
 
             [self runTask:task];
-            NSLog(@"doNext: task completed");
+            //NSLog(@"doNext: task completed");
 
             if (_tasks.count > 0) {
                 NSDictionary *dict = _tasks.firstObject;
@@ -118,7 +118,7 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
                 float afterVal = after.floatValue;
                 if (afterVal >= 0) {
                     dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, (dispatch_time_t) (NSEC_PER_SEC * afterVal));
-                    NSLog(@"doNext: after %@, when %lld", after, when);
+                    //NSLog(@"doNext: after %@, when %lld", after, when);
                     [_runner scheduleAsyncTask:_run at:when];
                 }
             } else {

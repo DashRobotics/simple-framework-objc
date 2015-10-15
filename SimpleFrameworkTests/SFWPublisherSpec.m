@@ -30,7 +30,7 @@
 
 @end
 
-@interface SFWPublisherSpecTestEmitter : NSObject<SFWPublisher>
+@interface SFWPublisherSpecTestEmitter : SFWPublisher
 
 @end
 

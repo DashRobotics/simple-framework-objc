@@ -239,7 +239,7 @@ describe(@"SFWTaskQueue", ^{
 
         SFWTaskQueue* queue = [[SFWTaskQueue alloc] initWithName:@"myqueue"];
 
-        waitUntilTimeout(3, ^(DoneCallback done) {
+        waitUntilTimeout(4, ^(DoneCallback done) {
 
             __block int num = 0;
 

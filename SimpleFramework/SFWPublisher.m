@@ -1,3 +1,4 @@
+
 /*
 The MIT License
 
@@ -24,8 +25,8 @@ THE SOFTWARE.
 
 #import <objc/runtime.h>
 #import "SFWWeakRef.h"
-#import "NSObject+SFWPublisher.h"
 #import "SFWTaskQueue.h"
+#import "SFWPublisher.h"
 
 @interface SFWPublisherProxy : NSObject
 
@@ -56,7 +57,10 @@ THE SOFTWARE.
         NSMethodSignature * theMethodSignature = [NSMethodSignature signatureWithObjCTypes:method.types];
 
         SEL sel = method.name;
-        self.selectorToSignature[NSStringFromSelector(sel)] = theMethodSignature;
+        self.selectorToSignature[NSStringFromSelector(sel)] = @{
+                @"signature" : theMethodSignature,
+                @"required": @(req && sel != nil)
+        };
 
         i++;
     }
@@ -66,15 +70,19 @@ THE SOFTWARE.
 
 - (void)forwardInvocation:(NSInvocation *)anInvocation {
 
+    NSDictionary* dict = self.selectorToSignature[NSStringFromSelector(anInvocation.selector)];
+
     @synchronized (self) {
         for (SFWWeakRef *observer in self.observers) {
-            [anInvocation invokeWithTarget:observer.value];
+            if (dict[@"required"] || [observer respondsToSelector:anInvocation.selector])
+                [anInvocation invokeWithTarget:observer.value];
         }
     }
 }
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector {
-    return self.selectorToSignature[NSStringFromSelector(aSelector)];
+    NSDictionary* dict = self.selectorToSignature[NSStringFromSelector(aSelector)];
+    return dict[@"signature"];
 }
 
 - (void) addObserver: (id)observer {
@@ -94,11 +102,47 @@ THE SOFTWARE.
 @end
 
 
-@implementation NSObject (SFWPublisher)
+void SFWPublisherSubscribe(id<SFWPublisher> self, id observer) {
+
+    if ([self respondsToSelector:@selector(subscribeKeys)]) {
+        NSArray * protocols = [self subscribeKeys];
+
+        for (Protocol* proto in protocols) {
+            BOOL subscribe = YES;
+            if ([self respondsToSelector:@selector(onSubscribe:key:)])
+                subscribe = [self onSubscribe:observer key:proto];
+            if ([observer conformsToProtocol:proto] && subscribe) {
+                SFWPublisherProxy * surrogate = SFWPublisherWithProtocol(self, proto);
+
+                [surrogate addObserver:observer];
+            }
+        }
+    }
+
+}
+
+void SFWPublisherUnsubscribe(id<SFWPublisher> self, id observer) {
+
+    if ([self respondsToSelector:@selector(subscribeKeys)]) {
+        NSArray * protocols = [self subscribeKeys];
+
+        for (Protocol* proto in protocols) {
+            BOOL unsubscribe = YES;
+            if ([self respondsToSelector:@selector(onUnsubscribe:key:)])
+                unsubscribe = [self onUnsubscribe:observer key:proto];
+            if ([observer conformsToProtocol:proto] && unsubscribe) {
+                SFWPublisherProxy * surrogate = SFWPublisherWithProtocol(self, proto);
+
+                [surrogate removeObserver:observer];
+            }
+        }
+    }
+
+}
 
 static const char* NSOBJECT_SFWPUBLISHER_DICT_KEY = "SFWPublisher_dict_key";
 
-- (SFWPublisherProxy *)findPublisher: (Protocol *) proto {
+id SFWPublisherWithProtocol(id<SFWPublisher> self, Protocol* proto) {
     NSMutableDictionary * dict = objc_getAssociatedObject(self, NSOBJECT_SFWPUBLISHER_DICT_KEY);
 
     if (dict == nil) {
@@ -115,54 +159,13 @@ static const char* NSOBJECT_SFWPUBLISHER_DICT_KEY = "SFWPublisher_dict_key";
     return surrogate;
 }
 
-- (void) subscribeObserver: (id) observer {
-
-    if ([self respondsToSelector:@selector(subscribeKeys)]) {
-        NSArray * protocols = [(id<SFWPublisher>) self subscribeKeys];
-
-        for (Protocol* proto in protocols) {
-            if ([observer conformsToProtocol:proto] &&
-                [self onSubscribe:observer key:proto]) {
-                SFWPublisherProxy * surrogate = [self findPublisher:proto];
-
-                [surrogate addObserver:observer];
-            }
-        }
-    }
-
+void SFWPublisherPublishToObserversUsingProtocol(id<SFWPublisher> self, Protocol* proto, SFWPublisherBlock_t block) {
+    SFWPublisherPublishToObserversUsingProtocolAndQueue(self, proto, nil, block);
 }
 
-- (void) unsubscribeObserver: (id) observer {
+void SFWPublisherPublishToObserversUsingProtocolAndQueue(id<SFWPublisher> self, Protocol* proto, SFWTaskQueue * queue, SFWPublisherBlock_t block) {
 
-    if ([self respondsToSelector:@selector(subscribeKeys)]) {
-        NSArray * protocols = [(id<SFWPublisher>) self subscribeKeys];
-
-        for (Protocol* proto in protocols) {
-            if ([observer conformsToProtocol:proto] &&
-                [self onUnsubscribe:observer key:proto]) {
-                SFWPublisherProxy * surrogate = [self findPublisher:proto];
-
-                [surrogate removeObserver:observer];
-            }
-        }
-    }
-
-}
-
-- (NSArray *)subscribeKeys {
-    return nil;
-}
-
-- (id)publisherForObserversUsing:(Protocol *)proto {
-    return [self findPublisher:proto];
-}
-
-- (void)publishToObserversUsing:(Protocol *)proto block:(SFWPublisherBlock_t)block {
-    [self publishToObserversUsing:proto queue:nil block:block];
-}
-
-- (void)publishToObserversUsing:(Protocol *)proto queue:(SFWTaskQueue *)queue block:(SFWPublisherBlock_t)block {
-    SFWPublisherProxy * publisher = [self findPublisher:proto];
+    SFWPublisherProxy * publisher = SFWPublisherWithProtocol(self, proto);
 
     if (queue == nil)
         block(publisher);
@@ -170,6 +173,17 @@ static const char* NSOBJECT_SFWPUBLISHER_DICT_KEY = "SFWPublisher_dict_key";
         [queue queueAsync:^{
             block(publisher);
         }];
+
+}
+
+@implementation SFWPublisher
+
+- (void)subscribeObserver:(id)observer {
+    SFWPublisherSubscribe(self, observer);
+}
+
+- (void)unsubscribeObserver:(id)observer {
+    SFWPublisherUnsubscribe(self, observer);
 }
 
 - (BOOL)onSubscribe:(id)observer key:(Protocol *)proto {
@@ -179,5 +193,22 @@ static const char* NSOBJECT_SFWPUBLISHER_DICT_KEY = "SFWPublisher_dict_key";
 - (BOOL)onUnsubscribe:(id)observer key:(Protocol *)proto {
     return YES;
 }
+
+- (NSArray *)subscribeKeys {
+    return nil;
+}
+
+- (id) publisherForObserversUsing: (Protocol *) proto {
+    return SFWPublisherWithProtocol(self, proto);
+}
+
+- (void) publishToObserversUsing: (Protocol *) proto block: (SFWPublisherBlock_t) block {
+    SFWPublisherPublishToObserversUsingProtocol(self, proto, block);
+}
+
+- (void) publishToObserversUsing: (Protocol *) proto queue: (SFWTaskQueue *) queue block: (SFWPublisherBlock_t) block {
+    SFWPublisherPublishToObserversUsingProtocolAndQueue(self, proto, queue, block);
+}
+
 
 @end
