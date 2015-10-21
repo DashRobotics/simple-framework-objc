@@ -71,10 +71,11 @@ THE SOFTWARE.
 - (void)forwardInvocation:(NSInvocation *)anInvocation {
 
     NSDictionary* dict = self.selectorToSignature[NSStringFromSelector(anInvocation.selector)];
+    BOOL isRequired = ((NSNumber *)dict[@"required"]).boolValue;
 
     @synchronized (self) {
         for (SFWWeakRef *observer in self.observers) {
-            if (dict[@"required"] || [observer respondsToSelector:anInvocation.selector])
+            if (isRequired || [observer.value respondsToSelector:anInvocation.selector])
                 [anInvocation invokeWithTarget:observer.value];
         }
     }

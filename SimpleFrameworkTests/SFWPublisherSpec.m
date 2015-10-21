@@ -30,6 +30,14 @@
 
 @end
 
+@protocol SFWPublisherSpecTestProtoOptional
+
+@optional
+- (void) testOptional: (NSArray *) array;
+
+@end
+
+
 @interface SFWPublisherSpecTestEmitter : SFWPublisher
 
 @end
@@ -67,10 +75,33 @@
 
 @end
 
+
+@interface SFWPublisherSpecTestEmitter2 : SFWPublisher
+
+@end
+
+@implementation SFWPublisherSpecTestEmitter2
+
+- (NSArray *)subscribeKeys {
+    return @[
+        @protocol(SFWPublisherSpecTestProtoOptional)
+    ];
+}
+
+- (void) publishOptional {
+    [self publishToObserversUsing:@protocol(SFWPublisherSpecTestProtoOptional) block:^(id<SFWPublisherSpecTestProtoOptional> publisher){
+        [publisher testOptional:[NSArray new]];
+    }];
+}
+
+@end
+
+
 @interface SFWPublisherSpecTestReceiver : NSObject<
         SFWPublisherSpecTestProto,
         SFWPublisherSpecTestProto2,
-        SFWPublisherSpecTestProto3
+        SFWPublisherSpecTestProto3,
+        SFWPublisherSpecTestProtoOptional
         >
 
 @property int testCalled;
@@ -99,6 +130,23 @@
 
 - (void)test3:(NSArray *)array {
     self.test3Called++;
+}
+
+@end
+
+@interface SFWPublisherSpecTestReceiverOptional : NSObject<
+        SFWPublisherSpecTestProto,
+        SFWPublisherSpecTestProtoOptional
+        >
+
+@property int testOptionalCalled;
+
+@end
+
+@implementation SFWPublisherSpecTestReceiverOptional
+
+- (void)testOptional:(NSArray *)array {
+    self.testOptionalCalled++;
     expect(array).to.beTruthy();
 }
 
@@ -109,8 +157,10 @@ SpecBegin(SFWPublisher)
 describe(@"SFWPublisher", ^{
 
     SFWPublisherSpecTestEmitter* emitter = [SFWPublisherSpecTestEmitter new];
+    SFWPublisherSpecTestEmitter2 * emitter2 = [SFWPublisherSpecTestEmitter2 new];
     SFWPublisherSpecTestReceiver * receiver = [SFWPublisherSpecTestReceiver new];
     SFWPublisherSpecTestReceiver * receiver2 = [SFWPublisherSpecTestReceiver new];
+    SFWPublisherSpecTestReceiverOptional * receiverOptional = [SFWPublisherSpecTestReceiverOptional new];
 
 
     beforeAll(^{
@@ -297,6 +347,39 @@ describe(@"SFWPublisher", ^{
         expect(receiver2.test2Called).to.equal(4);
         expect(receiver2.test2withIntCalled).to.equal(4);
         expect(receiver2.test3Called).to.equal(0);
+
+    });
+
+    it(@"should not send messages to an observer that does not implement an optional protocol method.", ^{
+
+        expect(receiverOptional.testOptionalCalled).to.equal(0);
+
+        [emitter2 subscribeObserver:receiver];
+        [emitter2 subscribeObserver:receiverOptional];
+
+        [emitter2 publishOptional];
+
+        expect(receiverOptional.testOptionalCalled).to.equal(1);
+
+    });
+
+    it(@"should throw an exception during publish when an observer does not implement a required protocol method.", ^{
+
+        SFWPublisherSpecTestReceiverOptional* localReceiver = [SFWPublisherSpecTestReceiverOptional new];
+
+        [emitter subscribeObserver:localReceiver];
+
+        BOOL exceptionCaught = false;
+
+        @try {
+            [emitter publish];
+        } @catch (NSException * ex) {
+            expect(ex.name).to.equal(NSInvalidArgumentException);
+            expect(ex.reason).to.contain(@"unrecognized selector");
+            exceptionCaught = YES;
+        }
+
+        expect(exceptionCaught).to.beTruthy();
 
     });
 
