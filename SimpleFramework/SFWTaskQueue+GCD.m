@@ -94,12 +94,14 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
 }
 
 - (void) doNext {
+
+    BOOL bRunTask = NO;
+    SFWTask *task = nil;
+    NSNumber *after = nil;
+
     @synchronized (self) {
 
         if (!_isPaused) {
-
-            SFWTask *task = nil;
-            NSNumber *after = nil;
 
             if (_tasks.count > 0) {
                 NSDictionary *dict = _tasks.firstObject;
@@ -108,9 +110,19 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
                 [_tasks removeObjectAtIndex:0];
             }
 
-            [self runTask:task];
-            //NSLog(@"doNext: task completed");
+            bRunTask = YES;
 
+        } else {
+            _needsRescheduledAfterPause = _run;
+        }
+
+    }
+
+    if (bRunTask) {
+        [self runTask:task];
+        //NSLog(@"doNext: task completed");
+
+        @synchronized (self) {
             if (_tasks.count > 0) {
                 NSDictionary *dict = _tasks.firstObject;
                 after = dict[@"after"];
@@ -126,10 +138,7 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
                 if (after.integerValue >= 0)
                     dispatch_group_leave(_group);
             }
-        } else {
-            _needsRescheduledAfterPause = _run;
         }
-
     }
 }
 
@@ -137,13 +146,16 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
 
     if (after == -1) {
         dispatch_group_wait(_group, DISPATCH_TIME_FOREVER);
+        bool bRunTask = NO;
         @synchronized (self) {
             if (!_isPaused) {
-                [self runTask:task];
+                bRunTask = YES;
             } else {
                 _needsRescheduledAfterPause = task;
             }
         }
+        if (bRunTask)
+            [self runTask:task];
     } else {
         @synchronized (self) {
             [_tasks addObject:@{
