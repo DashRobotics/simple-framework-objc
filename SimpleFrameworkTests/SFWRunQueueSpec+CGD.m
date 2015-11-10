@@ -127,6 +127,21 @@ describe(@"SFWTaskQueue", ^{
 
     });
 
+    it(@"should run blocks asynchronously in the future at a given time using 'queueAsync:at:'.", ^{
+        waitUntilTimeout(1.1, ^(DoneCallback done) {
+
+            dispatch_time_t then = dispatch_time(DISPATCH_TIME_NOW, 0) / NSEC_PER_SEC;
+
+            [[SFWTaskQueue backgroundQueue] queueAsync:^{
+
+                dispatch_time_t now = dispatch_time(DISPATCH_TIME_NOW, 0);
+                expect(now - then).to.beGreaterThan(1 * NSEC_PER_SEC);
+                done();
+
+            }                                   at:then + 1];
+        });
+    });
+
     it(@"should run blocks asynchronously in the future using 'queueAsync:after:'.", ^{
 
         __block int runOrder = 0;
@@ -258,6 +273,36 @@ describe(@"SFWTaskQueue", ^{
                 expect(num).to.equal(2);
                 done();
             } after:0];
+
+        });
+
+    });
+
+    it(@"should run tasks in order based on 'at' time.", ^{
+
+        waitUntilTimeout(3, ^(DoneCallback done) {
+
+            __block int num = 0;
+            dispatch_time_t now = dispatch_time(DISPATCH_TIME_NOW, 0) / NSEC_PER_SEC;
+
+            [[SFWTaskQueue backgroundQueue] queueAsync:^{
+                //should run 2nd
+                num++;
+                expect(num).to.equal(2);
+            } at:now + 1];
+
+            [[SFWTaskQueue backgroundQueue] queueAsync:^{
+                //should run last
+                num++;
+                expect(num).to.equal(3);
+                done();
+            } after:0.1];
+
+            [[SFWTaskQueue backgroundQueue] queueAsync:^{
+                //should run first
+                num++;
+                expect(num).to.equal(1);
+            } at:now + 0.5];
 
         });
 

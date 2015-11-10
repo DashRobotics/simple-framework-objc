@@ -41,9 +41,13 @@ THE SOFTWARE.
 - (SFWTask_t) queueAsync: (SFWRunBlock_t) block;
 /* Runs the block delayed by a timeout after the last queued block is executed. */
 - (SFWTask_t) queueAsync: (SFWRunBlock_t) block after: (NSTimeInterval) timeDelay;
+/* Runs the block at a certain time. */
+- (SFWTask_t) queueAsync: (SFWRunBlock_t) block at: (NSTimeInterval) timeDelay;
 
 - (void) pause;
 - (void) resume;
+- (void) cancelAll;
+- (void) cancel: (SFWTask_t) task;
 
 /*
 - (SFWTask *) queueTask: (SFWTask *) op sync: (bool) bSync;
