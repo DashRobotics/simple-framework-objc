@@ -97,17 +97,16 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
 
     BOOL bRunTask = NO;
     SFWTask *task = nil;
-    NSNumber *at = nil;
+    NSNumber *after = nil;
 
     @synchronized (self) {
 
         if (!_isPaused) {
 
-
             if (_tasks.count > 0) {
                 NSDictionary *dict = _tasks.firstObject;
                 task = dict[@"task"];
-                at = dict[@"at"];
+                after = dict[@"after"];
                 [_tasks removeObjectAtIndex:0];
             }
 
@@ -126,17 +125,17 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
         @synchronized (self) {
             if (_tasks.count > 0) {
                 NSDictionary *dict = _tasks.firstObject;
-                at = dict[@"at"];
+                after = dict[@"after"];
 
-                float atVal = at.floatValue;
-                if (atVal >= 0) {
-                    dispatch_time_t when = dispatch_time((dispatch_time_t) (NSEC_PER_SEC * atVal), 0);
+                float afterVal = after.floatValue;
+                if (afterVal >= 0) {
+                    dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, (dispatch_time_t) (NSEC_PER_SEC * afterVal));
                     //NSLog(@"doNext: after %@, when %lld", after, when);
                     [_runner scheduleAsyncTask:_run at:when];
                 }
             } else {
                 _isScheduled = NO;
-                if (at.integerValue >= 0)
+                if (after.integerValue >= 0)
                     dispatch_group_leave(_group);
             }
         }
@@ -145,30 +144,7 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
 
 - (SFWTask_t) addObject: (SFWTask_t) task after: (NSTimeInterval) after {
 
-    NSTimeInterval at = 0;
     if (after == -1) {
-        [self addObject:task at:after];
-    } else {
-        @synchronized (self) {
-            //get last value
-            NSDictionary* dict = [_tasks lastObject];
-            if (dict) {
-                NSNumber* nextAt = dict[@"at"];
-                at = nextAt.floatValue + after;
-            } else {
-                at = (NSTimeInterval) dispatch_time(DISPATCH_TIME_NOW, 0) / NSEC_PER_SEC;
-                at += after;
-            }
-        }
-        [self addObject:task at:at];
-    }
-
-    return task;
-}
-
-- (SFWTask_t) addObject: (SFWTask_t) task at: (NSTimeInterval) at {
-
-    if (at == -1) {
         dispatch_group_wait(_group, DISPATCH_TIME_FOREVER);
         bool bRunTask = NO;
         @synchronized (self) {
@@ -182,27 +158,12 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
             [self runTask:task];
     } else {
         @synchronized (self) {
-            //insertion sort
-            NSUInteger index = 0;
-            for (NSDictionary * dict in _tasks) {
-                NSNumber* nextAt = dict[@"at"];
-                if (nextAt.floatValue > at) {
-                    break;
-                }
-                index++;
-            }
-            if (index >= _tasks.count) {
-                [_tasks addObject:@{
-                        @"task" : task, @"at" : @(at)
-                }];
-            } else {
-                [_tasks insertObject:@{
-                        @"task" : task, @"at" : @(at)
-                } atIndex:index];
-            }
+            [_tasks addObject:@{
+                    @"task" : task, @"after" : @(after)
+            }];
 
             if (!_isScheduled) {
-                dispatch_time_t when = dispatch_time((dispatch_time_t) (at * NSEC_PER_SEC), 0);
+                dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, (dispatch_time_t) (NSEC_PER_SEC * after));
                 [_runner scheduleAsyncTask:_run at:when];
                 _isScheduled = YES;
                 dispatch_group_enter(_group);
@@ -228,11 +189,6 @@ static char* const CURRENT_QUEUE_KEY = "SFWTaskQueue.current";
 - (SFWTask_t)queueAsync:(SFWRunBlock_t)block after:(NSTimeInterval)timeDelay {
     return [self addObject:[[SFWTask alloc] initWithBlock:block ] after:timeDelay];
 }
-
-- (SFWTask_t)queueAsync:(SFWRunBlock_t)block at:(NSTimeInterval)timeDelay {
-    return [self addObject:[[SFWTask alloc] initWithBlock:block ] at:timeDelay];
-}
-
 
 - (void)pause {
     @synchronized (self) {
