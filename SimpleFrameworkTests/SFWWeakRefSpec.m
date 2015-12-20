@@ -27,11 +27,13 @@ describe(@"SFWWeakRef", ^{
 
     it(@"should have a nil value if reference is released.", ^{
 
-        SFWWeakRef* weakRef = nil;
+        __weak SFWWeakRef* weakRef = nil;
 
         @autoreleasepool {
+            SFWWeakRef* strongRef = nil;
             NSString* value = [NSString stringWithFormat:@"MyValue"];
-            weakRef = [SFWWeakRef weakRef: value];
+            strongRef = weakRef = [SFWWeakRef weakRef: value];
+            expect(weakRef.value).to.beTruthy();
         }
 
         expect(weakRef.value).to.beFalsy();
