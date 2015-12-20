@@ -95,6 +95,15 @@ void move_pthread_to_realtime_scheduling_class(pthread_t pthread)
     _isFinished = YES;
 }
 
+- (void) cancel {
+    [super cancel];
+
+    if (self.isExecuting)
+        _isExecuting = NO;
+    else
+        _isFinished = YES;
+}
+
 - (void)setSleepInterval:(NSTimeInterval)sleepInterval {
     _sleepInterval = fmax(sleepInterval, kMinSleepInterval);
 }

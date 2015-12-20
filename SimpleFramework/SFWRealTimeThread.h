@@ -29,4 +29,6 @@ THE SOFTWARE.
 
 @property (nonatomic, assign) NSTimeInterval sleepInterval;
 
+- (void) cancel;
+
 @end
