@@ -74,7 +74,8 @@ THE SOFTWARE.
     BOOL isRequired = ((NSNumber *)dict[@"required"]).boolValue;
 
     @synchronized (self) {
-        for (SFWWeakRef *observer in self.observers) {
+        NSArray *observers = [NSArray arrayWithArray:self.observers];
+        for (SFWWeakRef *observer in observers) {
             if (isRequired || [observer.value respondsToSelector:anInvocation.selector])
                 [anInvocation invokeWithTarget:observer.value];
         }
