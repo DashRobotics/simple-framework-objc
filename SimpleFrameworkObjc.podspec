@@ -17,7 +17,7 @@ Pod::Spec.new do |s|
 
   s.name         = "SimpleFrameworkObjc"
   s.version      = "0.0.4"
-  s.summary      = "A short description of SimpleFrameworkObjc."
+  s.summary      = "A simple framework."
 
   s.description  = <<-DESC
                    A longer description of SimpleFrameworkObjc in Markdown format.
@@ -79,7 +79,7 @@ Pod::Spec.new do |s|
   #  Supports git, hg, bzr, svn and HTTP.
   #
 
-  #s.source       = { :git => "http://EXAMPLE/SimpleFrameworkObjc.git", :tag => "0.0.1" }
+  s.source       = { :git => "https://github.com/redlinesolutions/simple-framework-objc.git" }
 
 
   # ――― Source Code ―――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――― #
