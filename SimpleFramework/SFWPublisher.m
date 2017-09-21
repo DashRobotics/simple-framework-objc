@@ -214,3 +214,11 @@ void SFWPublisherPublishToObserversUsingProtocolAndQueue(id<SFWPublisher> self, 
 
 
 @end
+
+@implementation SFWTypedPublisher
+
+- (id) typedPublisherForObserversUsing: (Protocol *) proto {
+    return [self publisherForObserversUsing:proto];
+}
+
+@end
