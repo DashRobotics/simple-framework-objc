@@ -89,6 +89,10 @@ THE SOFTWARE.
 
 - (void) addObserver: (id)observer {
     @synchronized (self) {
+        NSArray *observers = [NSArray arrayWithArray:
+            [self.observers filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"value = nil"]]
+        ];
+        [self.observers removeObjectsInArray:observers];
         id objectToAdd = [SFWWeakRef weakRef:observer];
         if (![self.observers containsObject:objectToAdd])
             [self.observers addObject:objectToAdd];
@@ -212,5 +216,13 @@ void SFWPublisherPublishToObserversUsingProtocolAndQueue(id<SFWPublisher> self, 
     SFWPublisherPublishToObserversUsingProtocolAndQueue(self, proto, queue, block);
 }
 
+
+@end
+
+@implementation SFWTypedPublisher
+
+- (id) typedPublisherForObserversUsing: (Protocol *) proto {
+    return [self publisherForObserversUsing:proto];
+}
 
 @end

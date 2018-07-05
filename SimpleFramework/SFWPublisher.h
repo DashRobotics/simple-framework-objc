@@ -59,3 +59,9 @@ extern void SFWPublisherPublishToObserversUsingProtocolAndQueue(id<SFWPublisher>
 @interface SFWPublisher : NSObject<SFWPublisher>
 
 @end
+
+@interface SFWTypedPublisher<T> : SFWPublisher
+
+- (T) typedPublisherForObserversUsing: (Protocol *) proto;
+
+@end

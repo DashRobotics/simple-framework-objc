@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   #
 
   s.name         = "SimpleFrameworkObjc"
-  s.version      = "0.0.4"
+  s.version      = "0.1.2"
   s.summary      = "A simple framework."
 
   s.description  = <<-DESC
@@ -28,7 +28,8 @@ Pod::Spec.new do |s|
                    * Finally, don't worry about the indent, CocoaPods strips it!
                    DESC
 
-  s.homepage     = "https://github.com/redlinesolutions/simple-framework-objc"
+  s.homepage     = "https://github.com/redlinesolutions/simple-framework-objc/"
+  s.source       = "https://github.com/redlinesolutions/simple-framework-objc/"
   # s.screenshots  = "www.example.com/screenshots_1.gif", "www.example.com/screenshots_2.gif"
 
 
